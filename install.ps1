@@ -84,9 +84,9 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 # --- 4. Clone repository ---
 if (Test-Path "$RepoDir\.git") {
     Write-Step "Repository exists. Updating..."
-    Set-Location $RepoDir
+    Push-Location $RepoDir
     git pull
-    Set-Location -
+    Pop-Location
 } else {
     Write-Step "Cloning repository..."
     git clone $RepoUrl $RepoDir
