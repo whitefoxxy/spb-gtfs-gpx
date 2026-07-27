@@ -118,6 +118,14 @@ class GTFSWorker(threading.Thread):
         # Формируем список для GUI
         route_list = []
         for _, row in routes_df.iterrows():
+            # Пропускаем строки без геометрии (NaN)
+            geom = row.get("geometry")
+            if geom is None or pd.isna(geom) or geom.is_empty:
+                continue
+            
+            num_points = row.get("num_points")
+            length_m = row.get("length_m")
+            
             route_list.append({
                 "route_id": str(row.get("route_id", "")),
                 "short_name": str(row.get("route_short_name", "")),
@@ -128,8 +136,8 @@ class GTFSWorker(threading.Thread):
                 "circular": str(row.get("circular", "")),
                 "direction_id": str(row.get("direction_id", "")),
                 "headsign": str(row.get("trip_headsign", ""))[:40],
-                "num_points": int(row.get("num_points", 0)),
-                "length_m": float(row.get("length_m", 0)),
+                "num_points": int(num_points) if pd.notna(num_points) else 0,
+                "length_m": float(length_m) if pd.notna(length_m) else 0.0,
             })
 
         self._post(WorkerMessage.TYPE_ROUTES_LOADED, routes=route_list, freshness=freshness)

@@ -42,6 +42,9 @@ class SearchableRouteList(ctk.CTkFrame):
 
     def _rebuild_list(self):
         """Перестраиваем список с учётом поиска."""
+        # Сохраняем текущее выделение
+        selected = {rid for rid, var in self._vars.items() if var.get()}
+        
         # Очищаем
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
@@ -60,7 +63,7 @@ class SearchableRouteList(ctk.CTkFrame):
 
         for route in filtered:
             rid = route["route_id"]
-            var = ctk.BooleanVar(value=False)
+            var = ctk.BooleanVar(value=rid in selected)
             var.trace_add("write", lambda *_args, _rid=rid: self._notify_change(_rid))
             self._vars[rid] = var
 

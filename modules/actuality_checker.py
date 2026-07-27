@@ -67,9 +67,11 @@ class ActualityChecker:
                 end = str(row.get("end_date", ""))
                 if not start or not end:
                     continue
-                # Защита от инвертированных дат
+                # Защита от инвертированных дат (данные фида СПб имеют end_date в 2019)
                 if start > end:
-                    start, end = end, start
+                    # Даты инвертированы — игнорируем диапазон, проверяем только день недели
+                    active.add(sid)
+                    continue
                 if start <= date_str <= end:
                     active.add(sid)
 
