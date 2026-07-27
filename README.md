@@ -20,17 +20,10 @@ GUI-приложение для загрузки GTFS-фидов обществ�
 
 ## Быстрая установка
 
-> **Важно:** репозиторий приватный. Сначала нужно клонировать его через Git (потребуется логин/пароль GitHub или SSH-ключ), затем запустить установочный скрипт локально.
-
 ### Windows (PowerShell)
 
 ```powershell
-# 1. Клонировать репозиторий (введите логин/пароль GitHub при запросе)
-git clone https://github.com/whitefoxxy/spb-gtfs-gpx.git
-
-# 2. Запустить установщик
-cd spb-gtfs-gpx
-.\install.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.ps1" -OutFile "install.ps1"; .\install.ps1
 ```
 
 **Что делает:**
@@ -46,12 +39,7 @@ cd spb-gtfs-gpx
 ### Linux / macOS (Bash)
 
 ```bash
-# 1. Клонировать репозиторий (введите логин/пароль GitHub при запросе)
-git clone https://github.com/whitefoxxy/spb-gtfs-gpx.git
-
-# 2. Запустить установщик
-cd spb-gtfs-gpx
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.sh | bash
 ```
 
 **Что делает:**
