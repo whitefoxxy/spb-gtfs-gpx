@@ -9,6 +9,27 @@
 
 $ErrorActionPreference = "Stop"
 
+# --- Проверка Execution Policy ---
+$execPolicy = Get-ExecutionPolicy -Scope Process
+if ($execPolicy -eq "Restricted" -or $execPolicy -eq "AllSigned") {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "  ВНИМАНИЕ: Политика выполнения скриптов" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "PowerShell блокирует выполнение скриптов."
+    Write-Host ""
+    Write-Host "Запустите установку одной из команд:" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1. С обходом политики (рекомендуется):" -ForegroundColor White
+    Write-Host "     powershell -ExecutionPolicy Bypass -File .\install.ps1" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  2. Или измените политику для текущего пользователя:" -ForegroundColor White
+    Write-Host "     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser" -ForegroundColor Green
+    Write-Host ""
+    exit 1
+}
+
 $RepoUrl = "https://github.com/whitefoxxy/spb-gtfs-gpx.git"
 $AppName = "spb-gtfs-gpx"
 $InstallDir = "$env:LOCALAPPDATA\$AppName"

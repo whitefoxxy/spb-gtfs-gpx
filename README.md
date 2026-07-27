@@ -22,8 +22,10 @@ GUI-приложение для загрузки GTFS-фидов обществ�
 
 ### Windows (PowerShell)
 
+> **Важно:** PowerShell по умолчанию блокирует выполнение скриптов. Используйте команду с обходом политики:
+
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.ps1" -OutFile "install.ps1"; .\install.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.ps1" -OutFile "install.ps1"; powershell -ExecutionPolicy Bypass -File ".\install.ps1"
 ```
 
 **Что делает:**
