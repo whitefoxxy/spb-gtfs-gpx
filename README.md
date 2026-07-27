@@ -18,7 +18,49 @@ GUI-приложение для загрузки GTFS-фидов обществ�
   - Включает городские и пригородные маршруты (в т.ч. в Ленинградскую область)
   - Поддерживаются автобусы, троллейбусы, трамваи
 
-## Установка зависимостей
+## Быстрая установка
+
+### Windows (PowerShell)
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.ps1" -OutFile "install.ps1"; .\install.ps1
+```
+
+**Что делает:**
+- Проверяет Python 3.10+ и Git
+- Клонирует репозиторий в `%LOCALAPPDATA%\spb-gtfs-gpx\`
+- Создаёт виртуальное окружение и устанавливает зависимости
+- Создаёт ярлык на рабочем столе
+
+**Запуск:** двойной клик по ярлыку на рабочем столе
+
+**Удаление:** `Remove-Item -Recurse -Force "$env:LOCALAPPDATA\spb-gtfs-gpx"`
+
+### Linux / macOS (Bash)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whitefoxxy/spb-gtfs-gpx/main/install.sh | bash
+```
+
+**Что делает:**
+- Проверяет Python 3.10+ и Git
+- Клонирует репозиторий (`~/.local/share/` на Linux, `~/Library/Application Support/` на macOS)
+- Создаёт виртуальное окружение и устанавливает зависимости
+- Создаёт ярлык на рабочем столе и добавляет в `PATH`
+
+**Запуск:**
+- **Linux:** двойной клик по ярлыку или команда `spb-gtfs-gpx` в терминале
+- **macOS:** двойной клик по `.command` файлу или команда `spb-gtfs-gpx` в терминале
+
+**Удаление:**
+```bash
+rm -rf ~/.local/share/spb-gtfs-gpx        # Linux
+rm -rf ~/Library/Application\ Support/spb-gtfs-gpx  # macOS
+```
+
+## Ручная установка (для разработчиков)
+
+### Установка зависимостей
 
 ```bash
 pip install -r requirements.txt
