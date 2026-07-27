@@ -31,46 +31,31 @@ class SearchableRouteList(ctk.CTkFrame):
         self._checkboxes: Dict[str, ctk.CTkCheckBox] = {}
         self._vars: Dict[str, ctk.BooleanVar] = {}
         self._on_change: Optional[Callable] = None
+        self._search_after_id: Optional[str] = None
 
     def set_on_change(self, callback: Callable):
         self._on_change = callback
 
     def load_routes(self, routes: List[dict]):
-        """Загружаем список маршрутов."""
-        self._routes = routes
-        self._rebuild_list()
-
-    def _rebuild_list(self):
-        """Перестраиваем список с учётом поиска."""
-        # Сохраняем текущее выделение
-        selected = {rid for rid, var in self._vars.items() if var.get()}
-        
-        # Очищаем
+        """Загружаем список маршрутов — создаём чекбоксы один раз."""
+        # Очищаем старые чекбоксы
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
         self._checkboxes.clear()
         self._vars.clear()
 
-        query = self.search_var.get().lower().strip()
-        filtered = self._routes
-        if query:
-            filtered = [
-                r for r in self._routes
-                if query in str(r.get("short_name", "")).lower()
-                or query in str(r.get("long_name", "")).lower()
-                or query in str(r.get("headsign", "")).lower()
-            ]
+        self._routes = routes
 
-        for route in filtered:
+        # Создаём все чекбоксы один раз
+        for route in routes:
             rid = route["route_id"]
-            var = ctk.BooleanVar(value=rid in selected)
+            var = ctk.BooleanVar(value=False)
             var.trace_add("write", lambda *_args, _rid=rid: self._notify_change(_rid))
             self._vars[rid] = var
 
             short = route.get("short_name", "")
             long_name = route.get("long_name", "")
             headsign = route.get("headsign", "")
-            ttype = route.get("transport_type", "")
             urban = "🌆" if route.get("urban") == "1" else "🌲"
             night = "🌙" if route.get("night") == "1" else ""
             text = f"{urban} {short} {night} | {long_name[:35]}"
@@ -82,7 +67,35 @@ class SearchableRouteList(ctk.CTkFrame):
             self._checkboxes[rid] = cb
 
     def _on_search(self, *_args):
-        self._rebuild_list()
+        """Debounce: ждём 300мс после последнего нажатия."""
+        if self._search_after_id:
+            self.after_cancel(self._search_after_id)
+        self._search_after_id = self.after(300, self._apply_filter)
+
+    def _apply_filter(self):
+        """Фильтруем видимые чекбоксы через pack/pack_forget (без destroy/create)."""
+        self._search_after_id = None
+        query = self.search_var.get().lower().strip()
+
+        for route in self._routes:
+            rid = route["route_id"]
+            cb = self._checkboxes.get(rid)
+            if cb is None:
+                continue
+
+            if not query:
+                cb.pack(fill="x", padx=2, pady=1)
+                continue
+
+            # Проверяем совпадение
+            short = str(route.get("short_name", "")).lower()
+            long_name = str(route.get("long_name", "")).lower()
+            headsign = str(route.get("headsign", "")).lower()
+
+            if query in short or query in long_name or query in headsign:
+                cb.pack(fill="x", padx=2, pady=1)
+            else:
+                cb.pack_forget()
 
     def _notify_change(self, rid: str):
         if self._on_change:
