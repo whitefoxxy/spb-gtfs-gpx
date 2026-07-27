@@ -117,31 +117,46 @@ class GTFSWorker(threading.Thread):
         self._routes_df = routes_df
         self._post(WorkerMessage.TYPE_PROGRESS, value=90, max_value=100)
 
-        # Формируем список для GUI
+        # Формируем список для GUI — один entry на route_id (не на shape)
         route_list = []
+        seen_route_ids = set()
         for _, row in routes_df.iterrows():
+            rid = str(row.get("route_id", ""))
+            if rid in seen_route_ids:
+                continue
             # Пропускаем строки без геометрии (NaN)
             geom = row.get("geometry")
             if geom is None or pd.isna(geom) or geom.is_empty:
                 continue
-            
+            seen_route_ids.add(rid)
+
             num_points = row.get("num_points")
             length_m = row.get("length_m")
-            
+
             route_list.append({
-                "route_id": str(row.get("route_id", "")),
-                "shape_id": str(row.get("shape_id", "")),
+                "route_id": rid,
                 "short_name": str(row.get("route_short_name", "")),
                 "long_name": str(row.get("route_long_name", ""))[:60],
                 "transport_type": str(row.get("transport_type", "")),
                 "urban": str(row.get("urban", "")),
                 "night": str(row.get("night", "")),
                 "circular": str(row.get("circular", "")),
-                "direction_id": str(row.get("direction_id", "")),
-                "headsign": str(row.get("trip_headsign", ""))[:40],
-                "num_points": int(num_points) if pd.notna(num_points) else 0,
-                "length_m": float(length_m) if pd.notna(length_m) else 0.0,
             })
+
+        # Сортировка по номеру маршрута (числовая, с fallback на строку)
+        def _sort_key(route):
+            short = route.get("short_name", "")
+            num_str = ""
+            for c in short:
+                if c.isdigit():
+                    num_str += c
+                else:
+                    break
+            if num_str:
+                return (0, int(num_str), short)
+            return (1, 0, short)
+
+        route_list.sort(key=_sort_key)
 
         self._post(WorkerMessage.TYPE_ROUTES_LOADED, routes=route_list, freshness=freshness)
         self._post(WorkerMessage.TYPE_PROGRESS, value=100, max_value=100)
@@ -243,8 +258,8 @@ class GTFSWorker(threading.Thread):
         self._post(WorkerMessage.TYPE_LOG, message="Начинаем экспорт...")
         self._post(WorkerMessage.TYPE_PROGRESS, value=10, max_value=100)
 
-        # Фильтруем по выбранным shape_id (уникальный идентификатор варианта)
-        selected = self._routes_df[self._routes_df["shape_id"].isin(self.selected_route_ids)]
+        # Фильтруем по выбранным route_id (все загруженные варианты маршрута)
+        selected = self._routes_df[self._routes_df["route_id"].isin(self.selected_route_ids)]
         if selected.empty:
             raise RuntimeError("Не выбрано ни одного маршрута для экспорта")
 
@@ -256,9 +271,7 @@ class GTFSWorker(threading.Thread):
             if self.settings.stops_source == "all":
                 stops_df = self._parser.get_df("stops")
             else:
-                # Получаем route_id из выбранных shape_id для привязки остановок
-                selected_route_ids = selected["route_id"].unique().tolist()
-                stops_df = self._parser.build_stops_for_routes(selected_route_ids)
+                stops_df = self._parser.build_stops_for_routes(self.selected_route_ids)
 
         self._post(WorkerMessage.TYPE_PROGRESS, value=50, max_value=100)
 
