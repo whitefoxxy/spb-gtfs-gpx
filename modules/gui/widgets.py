@@ -30,7 +30,7 @@ class SearchableRouteList(ctk.CTkFrame):
         self._routes: List[dict] = []
         self._checkboxes: Dict[str, ctk.CTkCheckBox] = {}
         self._vars: Dict[str, ctk.BooleanVar] = {}
-        self._route_ids: Dict[str, str] = {}  # key -> route_id
+        self._shape_ids: Dict[str, str] = {}  # key -> shape_id
         self._on_change: Optional[Callable] = None
         self._search_after_id: Optional[str] = None
 
@@ -44,15 +44,15 @@ class SearchableRouteList(ctk.CTkFrame):
             widget.destroy()
         self._checkboxes.clear()
         self._vars.clear()
-        self._route_ids.clear()
+        self._shape_ids.clear()
 
         self._routes = routes
 
         # Создаём все чекбоксы один раз (ключ — индекс, т.к. route_id может дублироваться)
         for i, route in enumerate(routes):
             key = str(i)
-            rid = route["route_id"]
-            self._route_ids[key] = rid
+            shape_id = route.get("shape_id", str(i))
+            self._shape_ids[key] = shape_id
 
             var = ctk.BooleanVar(value=False)
             var.trace_add("write", lambda *_args, _key=key: self._notify_change(_key))
@@ -104,8 +104,8 @@ class SearchableRouteList(ctk.CTkFrame):
 
     def _notify_change(self, key: str):
         if self._on_change:
-            rid = self._route_ids.get(key, "")
-            self._on_change(rid, self._vars.get(key, ctk.BooleanVar()).get())
+            sid = self._shape_ids.get(key, "")
+            self._on_change(sid, self._vars.get(key, ctk.BooleanVar()).get())
 
     def select_all(self):
         for var in self._vars.values():
@@ -120,16 +120,16 @@ class SearchableRouteList(ctk.CTkFrame):
             var.set(not var.get())
 
     def get_selected_ids(self) -> List[str]:
-        selected = set()
+        selected = []
         for key, var in self._vars.items():
             if var.get():
-                selected.add(self._route_ids.get(key, ""))
-        return list(selected)
+                selected.append(self._shape_ids.get(key, ""))
+        return selected
 
     def set_selected_ids(self, ids: List[str]):
         id_set = set(ids)
         for key, var in self._vars.items():
-            var.set(self._route_ids.get(key, "") in id_set)
+            var.set(self._shape_ids.get(key, "") in id_set)
 
 
 class LabeledEntry(ctk.CTkFrame):

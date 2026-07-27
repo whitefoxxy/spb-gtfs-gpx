@@ -130,6 +130,7 @@ class GTFSWorker(threading.Thread):
             
             route_list.append({
                 "route_id": str(row.get("route_id", "")),
+                "shape_id": str(row.get("shape_id", "")),
                 "short_name": str(row.get("route_short_name", "")),
                 "long_name": str(row.get("route_long_name", ""))[:60],
                 "transport_type": str(row.get("transport_type", "")),
@@ -242,8 +243,8 @@ class GTFSWorker(threading.Thread):
         self._post(WorkerMessage.TYPE_LOG, message="Начинаем экспорт...")
         self._post(WorkerMessage.TYPE_PROGRESS, value=10, max_value=100)
 
-        # Фильтруем по выбранным route_id
-        selected = self._routes_df[self._routes_df["route_id"].isin(self.selected_route_ids)]
+        # Фильтруем по выбранным shape_id (уникальный идентификатор варианта)
+        selected = self._routes_df[self._routes_df["shape_id"].isin(self.selected_route_ids)]
         if selected.empty:
             raise RuntimeError("Не выбрано ни одного маршрута для экспорта")
 
@@ -255,7 +256,9 @@ class GTFSWorker(threading.Thread):
             if self.settings.stops_source == "all":
                 stops_df = self._parser.get_df("stops")
             else:
-                stops_df = self._parser.build_stops_for_routes(self.selected_route_ids)
+                # Получаем route_id из выбранных shape_id для привязки остановок
+                selected_route_ids = selected["route_id"].unique().tolist()
+                stops_df = self._parser.build_stops_for_routes(selected_route_ids)
 
         self._post(WorkerMessage.TYPE_PROGRESS, value=50, max_value=100)
 
