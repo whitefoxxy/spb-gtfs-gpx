@@ -8,3 +8,5 @@ venv/
 .env
 *.spec
 !build.spec
+CHANGELOG.md
+info.md
