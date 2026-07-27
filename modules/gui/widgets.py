@@ -30,6 +30,7 @@ class SearchableRouteList(ctk.CTkFrame):
         self._routes: List[dict] = []
         self._checkboxes: Dict[str, ctk.CTkCheckBox] = {}
         self._vars: Dict[str, ctk.BooleanVar] = {}
+        self._route_ids: Dict[str, str] = {}  # key -> route_id
         self._on_change: Optional[Callable] = None
         self._search_after_id: Optional[str] = None
 
@@ -43,15 +44,19 @@ class SearchableRouteList(ctk.CTkFrame):
             widget.destroy()
         self._checkboxes.clear()
         self._vars.clear()
+        self._route_ids.clear()
 
         self._routes = routes
 
-        # Создаём все чекбоксы один раз
-        for route in routes:
+        # Создаём все чекбоксы один раз (ключ — индекс, т.к. route_id может дублироваться)
+        for i, route in enumerate(routes):
+            key = str(i)
             rid = route["route_id"]
+            self._route_ids[key] = rid
+
             var = ctk.BooleanVar(value=False)
-            var.trace_add("write", lambda *_args, _rid=rid: self._notify_change(_rid))
-            self._vars[rid] = var
+            var.trace_add("write", lambda *_args, _key=key: self._notify_change(_key))
+            self._vars[key] = var
 
             short = route.get("short_name", "")
             long_name = route.get("long_name", "")
@@ -64,7 +69,7 @@ class SearchableRouteList(ctk.CTkFrame):
 
             cb = ctk.CTkCheckBox(self.scroll_frame, text=text, variable=var)
             cb.pack(fill="x", padx=2, pady=1)
-            self._checkboxes[rid] = cb
+            self._checkboxes[key] = cb
 
     def _on_search(self, *_args):
         """Debounce: ждём 300мс после последнего нажатия."""
@@ -77,9 +82,9 @@ class SearchableRouteList(ctk.CTkFrame):
         self._search_after_id = None
         query = self.search_var.get().lower().strip()
 
-        for route in self._routes:
-            rid = route["route_id"]
-            cb = self._checkboxes.get(rid)
+        for i, route in enumerate(self._routes):
+            key = str(i)
+            cb = self._checkboxes.get(key)
             if cb is None:
                 continue
 
@@ -97,9 +102,10 @@ class SearchableRouteList(ctk.CTkFrame):
             else:
                 cb.pack_forget()
 
-    def _notify_change(self, rid: str):
+    def _notify_change(self, key: str):
         if self._on_change:
-            self._on_change(rid, self._vars.get(rid, ctk.BooleanVar()).get())
+            rid = self._route_ids.get(key, "")
+            self._on_change(rid, self._vars.get(key, ctk.BooleanVar()).get())
 
     def select_all(self):
         for var in self._vars.values():
@@ -114,11 +120,16 @@ class SearchableRouteList(ctk.CTkFrame):
             var.set(not var.get())
 
     def get_selected_ids(self) -> List[str]:
-        return [rid for rid, var in self._vars.items() if var.get()]
+        selected = set()
+        for key, var in self._vars.items():
+            if var.get():
+                selected.add(self._route_ids.get(key, ""))
+        return list(selected)
 
     def set_selected_ids(self, ids: List[str]):
-        for rid, var in self._vars.items():
-            var.set(rid in ids)
+        id_set = set(ids)
+        for key, var in self._vars.items():
+            var.set(self._route_ids.get(key, "") in id_set)
 
 
 class LabeledEntry(ctk.CTkFrame):
