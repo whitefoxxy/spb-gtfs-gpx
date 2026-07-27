@@ -31,6 +31,7 @@ class MainWindow(ctk.CTk):
         self._msg_queue: queue.Queue = queue.Queue()
         self._parser: Optional[GTFSParser] = None
         self._routes_df = None
+        self._raw_routes_df = None
         self._after_id: Optional[str] = None
 
         self._build_ui()
@@ -48,6 +49,9 @@ class MainWindow(ctk.CTk):
 
         self.btn_refresh = ctk.CTkButton(self.header, text="🔄 Обновить фид", command=self._on_refresh)
         self.btn_refresh.pack(side="right", padx=5, pady=5)
+
+        self.btn_filter = ctk.CTkButton(self.header, text="🔍 Применить фильтр", command=self._on_apply_filter)
+        self.btn_filter.pack(side="right", padx=5, pady=5)
 
         self.btn_load = ctk.CTkButton(self.header, text="📥 Загрузить маршруты", command=self._on_load)
         self.btn_load.pack(side="right", padx=5, pady=5)
@@ -329,6 +333,24 @@ class MainWindow(ctk.CTk):
         self._worker = GTFSWorker(settings=s, message_queue=self._msg_queue, mode="load", force=True)
         self._worker.start()
 
+    def _on_apply_filter(self):
+        """Применяем фильтры к уже загруженному фиду (без повторной загрузки)."""
+        if self._parser is None or self._raw_routes_df is None:
+            self._show_error("Сначала загрузите фид (кнопка «Загрузить маршруты»)")
+            return
+
+        s = self._collect_settings_from_ui()
+        s.save()
+        self.settings = s
+
+        self._set_busy(True)
+        self.log("Применение фильтров...")
+        self.progress.set(0)
+
+        self._worker = GTFSWorker(settings=s, message_queue=self._msg_queue, mode="filter")
+        self._worker.set_raw_data(self._parser, self._raw_routes_df)
+        self._worker.start()
+
     def _on_export(self):
         selected = self.route_list.get_selected_ids()
         if not selected:
@@ -381,10 +403,11 @@ class MainWindow(ctk.CTk):
             self.status_label.configure(
                 text=f"Загружено маршрутов: {len(routes)} | {freshness.get('message', '')}"
             )
-            # Копируем parser и routes_df из worker для экспорта
+            # Копируем parser и routes_df из worker для экспорта и фильтрации
             if self._worker is not None:
                 self._parser = self._worker._parser
                 self._routes_df = self._worker._routes_df
+                self._raw_routes_df = self._worker._raw_routes_df
         elif msg.type == WorkerMessage.TYPE_DONE:
             self._set_busy(False)
             files = msg.data.get("files", [])
@@ -405,6 +428,7 @@ class MainWindow(ctk.CTk):
         state = "disabled" if busy else "normal"
         self.btn_load.configure(state=state)
         self.btn_refresh.configure(state=state)
+        self.btn_filter.configure(state=state)
         self.btn_export.configure(state=state)
 
     def _show_error(self, message: str):

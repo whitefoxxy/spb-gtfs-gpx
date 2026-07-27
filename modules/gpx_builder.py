@@ -180,7 +180,8 @@ class GPXBuilder:
         output_dir.mkdir(parents=True, exist_ok=True)
         created: List[Path] = []
 
-        if output_single:
+        # При merge_routes всегда создаём один файл
+        if output_single or self.merge_routes:
             gpx = self.build_gpx(routes_df, stops_df, stop_name_field)
             path = output_dir / f"{prefix}.gpx"
             with open(path, "w", encoding="utf-8") as f:

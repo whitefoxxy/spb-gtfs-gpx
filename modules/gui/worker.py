@@ -48,6 +48,7 @@ class GTFSWorker(threading.Thread):
         self._cancelled = False
         self._parser: Optional[GTFSParser] = None
         self._routes_df: Optional[pd.DataFrame] = None
+        self._raw_routes_df: Optional[pd.DataFrame] = None
 
     def cancel(self):
         self._cancelled = True
@@ -62,6 +63,8 @@ class GTFSWorker(threading.Thread):
         try:
             if self.mode == "load":
                 self._do_load()
+            elif self.mode == "filter":
+                self._do_filter()
             elif self.mode == "export":
                 self._do_export()
         except Exception as e:
@@ -109,6 +112,7 @@ class GTFSWorker(threading.Thread):
         if routes_df.empty:
             raise RuntimeError("Не удалось построить маршруты — возможно, фид повреждён")
 
+        self._raw_routes_df = routes_df.copy()
         self._post(WorkerMessage.TYPE_PROGRESS, value=50, max_value=100)
 
         # Фильтрация по настройкам
@@ -159,6 +163,60 @@ class GTFSWorker(threading.Thread):
         route_list.sort(key=_sort_key)
 
         self._post(WorkerMessage.TYPE_ROUTES_LOADED, routes=route_list, freshness=freshness)
+        self._post(WorkerMessage.TYPE_PROGRESS, value=100, max_value=100)
+        self._post(WorkerMessage.TYPE_DONE)
+
+    def _do_filter(self):
+        """Применяем фильтры к уже загруженному фиду (без повторной загрузки)."""
+        if self._raw_routes_df is None or self._parser is None:
+            raise RuntimeError("Сначала загрузите фид")
+
+        self._post(WorkerMessage.TYPE_LOG, message="Применение фильтров...")
+        self._post(WorkerMessage.TYPE_PROGRESS, value=10, max_value=100)
+
+        checker = ActualityChecker(self._parser)
+        routes_df = self._apply_filters(self._raw_routes_df.copy(), checker)
+
+        self._routes_df = routes_df
+        self._post(WorkerMessage.TYPE_PROGRESS, value=70, max_value=100)
+
+        # Формируем список для GUI
+        route_list = []
+        seen_route_ids = set()
+        for _, row in routes_df.iterrows():
+            rid = str(row.get("route_id", ""))
+            if rid in seen_route_ids:
+                continue
+            geom = row.get("geometry")
+            if geom is None or pd.isna(geom) or geom.is_empty:
+                continue
+            seen_route_ids.add(rid)
+
+            route_list.append({
+                "route_id": rid,
+                "short_name": str(row.get("route_short_name", "")),
+                "long_name": str(row.get("route_long_name", ""))[:60],
+                "transport_type": str(row.get("transport_type", "")),
+                "urban": str(row.get("urban", "")),
+                "night": str(row.get("night", "")),
+                "circular": str(row.get("circular", "")),
+            })
+
+        def _sort_key(route):
+            short = route.get("short_name", "")
+            num_str = ""
+            for c in short:
+                if c.isdigit():
+                    num_str += c
+                else:
+                    break
+            if num_str:
+                return (0, int(num_str), short)
+            return (1, 0, short)
+
+        route_list.sort(key=_sort_key)
+
+        self._post(WorkerMessage.TYPE_ROUTES_LOADED, routes=route_list, freshness={})
         self._post(WorkerMessage.TYPE_PROGRESS, value=100, max_value=100)
         self._post(WorkerMessage.TYPE_DONE)
 
@@ -305,3 +363,8 @@ class GTFSWorker(threading.Thread):
         """Устанавливаем parser и routes_df извне (для режима export после load)."""
         self._parser = parser
         self._routes_df = routes_df
+
+    def set_raw_data(self, parser: GTFSParser, raw_routes_df: pd.DataFrame):
+        """Устанавливаем parser и raw_routes_df для режима filter."""
+        self._parser = parser
+        self._raw_routes_df = raw_routes_df
