@@ -150,6 +150,8 @@ class MainWindow(ctk.CTk):
         self.chk_single.pack(fill="x", padx=5, pady=2)
         self.chk_per_route = ctk.CTkCheckBox(self.right_panel, text="Отдельно по маршрутам")
         self.chk_per_route.pack(fill="x", padx=5, pady=2)
+        self.chk_merge = ctk.CTkCheckBox(self.right_panel, text="Объединить в один трек")
+        self.chk_merge.pack(fill="x", padx=5, pady=2)
 
         # Папка вывода
         self.entry_output = LabeledEntry(self.right_panel, label="Папка:", width=150)
@@ -231,6 +233,7 @@ class MainWindow(ctk.CTk):
         # Output
         self.chk_single.select() if s.output_single else self.chk_single.deselect()
         self.chk_per_route.select() if s.output_per_route else self.chk_per_route.deselect()
+        self.chk_merge.select() if s.merge_routes else self.chk_merge.deselect()
         self.entry_output.set(s.output_dir or str(Path.home() / "Documents"))
         self.entry_template.set(s.track_name_template)
 
@@ -283,6 +286,7 @@ class MainWindow(ctk.CTk):
 
         s.output_single = bool(self.chk_single.get())
         s.output_per_route = bool(self.chk_per_route.get())
+        s.merge_routes = bool(self.chk_merge.get())
         s.output_dir = self.entry_output.get()
         s.track_name_template = self.entry_template.get()
 

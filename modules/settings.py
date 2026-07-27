@@ -60,6 +60,7 @@ class Settings:
     # --- GPX ---
     output_single: bool = True
     output_per_route: bool = False
+    merge_routes: bool = False  # объединить выбранные маршруты в один трек
     output_dir: str = ""
     track_name_template: str = "{short_name} {headsign}"
     simplify: bool = False
@@ -98,6 +99,7 @@ class Settings:
             stop_name_field=d.get("stop_name_field", "stop_name"),
             output_single=d.get("output_single", True),
             output_per_route=d.get("output_per_route", False),
+            merge_routes=d.get("merge_routes", False),
             output_dir=d.get("output_dir", ""),
             track_name_template=d.get("track_name_template", "{short_name} {headsign}"),
             simplify=d.get("simplify", False),

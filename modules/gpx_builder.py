@@ -7,7 +7,8 @@ from typing import Dict, List, Optional
 import gpxpy
 import gpxpy.gpx
 import pandas as pd
-from shapely.geometry import LineString
+from shapely.geometry import LineString, MultiLineString
+from shapely.ops import unary_union, linemerge
 
 
 class GPXBuilder:
@@ -19,11 +20,13 @@ class GPXBuilder:
         simplify: bool = False,
         simplify_tolerance_m: float = 20.0,
         include_metadata: bool = True,
+        merge_routes: bool = False,
     ):
         self.track_name_template = track_name_template
         self.simplify = simplify
         self.simplify_tolerance_m = simplify_tolerance_m
         self.include_metadata = include_metadata
+        self.merge_routes = merge_routes
 
     def _build_track_name(self, row: pd.Series) -> str:
         """Формируем имя трека по шаблону."""
@@ -73,6 +76,41 @@ class GPXBuilder:
         desc = str(row.get("stop_name", ""))
         return gpxpy.gpx.GPXWaypoint(latitude=lat, longitude=lon, name=name, description=desc)
 
+    def _merge_geometries(self, routes_df: pd.DataFrame) -> List[LineString]:
+        """
+        Объединяем геометрии маршрутов в один трек без дублирования участков.
+        Возвращает список LineString (может быть несколько несвязных частей).
+        """
+        lines = []
+        for _, row in routes_df.iterrows():
+            geom = row.get("geometry")
+            if geom is None or (hasattr(geom, 'is_empty') and geom.is_empty):
+                continue
+            line = self._simplify_line(geom)
+            if isinstance(line, LineString) and not line.is_empty:
+                lines.append(line)
+
+        if not lines:
+            return []
+
+        # unary_union — убирает дублирующиеся участки
+        merged = unary_union(lines)
+
+        # linemerge — пытается соединить линии в непрерывный трек
+        if isinstance(merged, MultiLineString):
+            try:
+                merged = linemerge(merged)
+            except Exception:
+                pass
+
+        # Нормализуем в список LineString
+        if isinstance(merged, LineString):
+            return [merged]
+        elif isinstance(merged, MultiLineString):
+            return [g for g in merged.geoms if not g.is_empty]
+        else:
+            return []
+
     def build_gpx(
         self,
         routes_df: pd.DataFrame,
@@ -87,16 +125,31 @@ class GPXBuilder:
             gpx.description = f"Сгенерировано {datetime.now().strftime('%d.%m.%Y %H:%M')}"
             gpx.time = datetime.now()
 
-        # Треки
-        for _, row in routes_df.iterrows():
-            geom = row.get("geometry")
-            if geom is None or geom.is_empty:
-                continue
-            line = self._simplify_line(geom)
-            name = self._build_track_name(row)
-            desc = str(row.get("route_long_name", ""))
-            track = self._line_to_track(line, name, desc)
-            gpx.tracks.append(track)
+        if self.merge_routes:
+            # Объединяем все маршруты в один трек
+            merged_lines = self._merge_geometries(routes_df)
+            if merged_lines:
+                # Собираем имена всех маршрутов
+                names = routes_df["route_short_name"].dropna().unique().tolist()
+                track_name = " + ".join(str(n) for n in names)
+                track = gpxpy.gpx.GPXTrack(name=track_name)
+                for line in merged_lines:
+                    segment = gpxpy.gpx.GPXTrackSegment()
+                    for lon, lat in line.coords:
+                        segment.points.append(gpxpy.gpx.GPXTrackPoint(latitude=lat, longitude=lon))
+                    track.segments.append(segment)
+                gpx.tracks.append(track)
+        else:
+            # Каждый маршрут — отдельный трек
+            for _, row in routes_df.iterrows():
+                geom = row.get("geometry")
+                if geom is None or (hasattr(geom, 'is_empty') and geom.is_empty):
+                    continue
+                line = self._simplify_line(geom)
+                name = self._build_track_name(row)
+                desc = str(row.get("route_long_name", ""))
+                track = self._line_to_track(line, name, desc)
+                gpx.tracks.append(track)
 
         # Waypoints (остановки)
         if stops_df is not None and not stops_df.empty:
@@ -134,7 +187,7 @@ class GPXBuilder:
                 f.write(gpx.to_xml())
             created.append(path)
 
-        if output_per_route:
+        if output_per_route and not self.merge_routes:
             # Группируем по route_id
             for route_id, group in routes_df.groupby("route_id", sort=False):
                 gpx = self.build_gpx(group, None, stop_name_field)

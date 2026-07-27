@@ -281,6 +281,7 @@ class GTFSWorker(threading.Thread):
             simplify=self.settings.simplify,
             simplify_tolerance_m=self.settings.simplify_tolerance_m,
             include_metadata=self.settings.include_metadata,
+            merge_routes=self.settings.merge_routes,
         )
 
         output_dir = Path(self.settings.output_dir) if self.settings.output_dir else Path.home() / "Documents"
