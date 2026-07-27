@@ -37,12 +37,14 @@ class GTFSWorker(threading.Thread):
         message_queue: queue.Queue,
         mode: str = "load",  # "load" | "export"
         selected_route_ids: Optional[List[str]] = None,
+        force: bool = False,
     ):
         super().__init__(daemon=True)
         self.settings = settings
         self.msg_queue = message_queue
         self.mode = mode
         self.selected_route_ids = selected_route_ids or []
+        self._force = force
         self._cancelled = False
         self._parser: Optional[GTFSParser] = None
         self._routes_df: Optional[pd.DataFrame] = None
@@ -84,7 +86,7 @@ class GTFSWorker(threading.Thread):
             user_agent=self.settings.user_agent,
             ttl_hours=self.settings.cache_ttl_hours,
         )
-        zip_path, meta = downloader.download(force=False)
+        zip_path, meta = downloader.download(force=self._force)
         self._post(WorkerMessage.TYPE_LOG, message=f"Фид загружен: {zip_path}")
 
         # Проверка свежести

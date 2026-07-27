@@ -322,8 +322,7 @@ class MainWindow(ctk.CTk):
         self._set_busy(True)
         self.log("Принудительное обновление фида...")
         self.progress.set(0)
-        self._worker = GTFSWorker(settings=s, message_queue=self._msg_queue, mode="load")
-        # TODO: передать force=True в downloader
+        self._worker = GTFSWorker(settings=s, message_queue=self._msg_queue, mode="load", force=True)
         self._worker.start()
 
     def _on_export(self):
@@ -378,6 +377,10 @@ class MainWindow(ctk.CTk):
             self.status_label.configure(
                 text=f"Загружено маршрутов: {len(routes)} | {freshness.get('message', '')}"
             )
+            # Копируем parser и routes_df из worker для экспорта
+            if self._worker is not None:
+                self._parser = self._worker._parser
+                self._routes_df = self._worker._routes_df
         elif msg.type == WorkerMessage.TYPE_DONE:
             self._set_busy(False)
             files = msg.data.get("files", [])
